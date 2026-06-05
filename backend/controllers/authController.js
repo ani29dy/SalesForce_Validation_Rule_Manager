@@ -1,6 +1,14 @@
 const jsforce = require('jsforce');
 const { createOAuth2 } = require('../config/salesforce');
 
+function getFrontendUrl() {
+  return (
+    process.env.FRONTEND_URL ||
+    process.env.RENDER_EXTERNAL_URL ||
+    'http://localhost:5173'
+  ).replace(/\/$/, '');
+}
+
 /**
  * Redirect user to Salesforce OAuth authorization page with PKCE.
  * Salesforce Connected Apps require code_challenge for the authorization request.
@@ -30,7 +38,7 @@ function login(req, res) {
  */
 async function callback(req, res) {
   const { code, error, error_description: errorDescription } = req.query;
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const frontendUrl = getFrontendUrl();
 
   if (error) {
     console.error('OAuth error:', error, errorDescription);

@@ -1,336 +1,168 @@
-# Deploy to Render
+# Deploy to Render (Single Service — Recommended)
 
-Step-by-step guide to host the **Validation Rule Manager** on [Render](https://render.com) with separate backend (Web Service) and frontend (Static Site) services.
+Use **one Render Web Service** that serves both the React UI and the Express API on the same URL. This fixes:
 
-## Architecture on Render
+- `/login` and `/dashboard` returning **404 Not Found**
+- OAuth `redirect_uri_mismatch` from mismatched frontend/backend URLs
+- Session/cookie issues between two different Render domains
+
+Your app URL will look like:
 
 ```
-User Browser
-    │
-    ├─► Frontend (Static Site)     https://validation-rule-manager-ui.onrender.com
-    │       React app, login button redirects to backend /auth/login
-    │
-    └─► Backend (Web Service)      https://validation-rule-manager-api.onrender.com
-            Express API, OAuth callback, Salesforce integration
-                    │
-                    └─► Salesforce OAuth + Tooling API
+https://salesforce-validation-rule-manager-xxxx.onrender.com
 ```
-
-## Prerequisites
-
-Before deploying, make sure you have:
-
-1. A [Render](https://render.com) account (free tier works)
-2. This project pushed to **GitHub**, **GitLab**, or **Bitbucket**
-3. A Salesforce Developer Org with a Connected App
-4. Your Salesforce **Consumer Key** and **Consumer Secret**
 
 ---
 
-## Part 1 — Prepare Salesforce Connected App
-
-You will update the callback URL after the backend is deployed. For now, note these settings:
-
-1. Log in to Salesforce → **Setup** → **App Manager**
-2. Open your Connected App (or create one)
-3. Under **OAuth Settings**:
-   - **Callback URL** — you will add your Render backend URL in Part 3
-   - **Selected OAuth Scopes**:
-     - `Access and manage your data (api)`
-     - `Perform requests at any time (refresh_token, offline_access)`
-4. Under **Manage Connected App → Edit Policies**:
-   - **Permitted Users**: All users may self-authorize (for dev/testing)
-   - **IP Relaxation**: Relax IP restrictions
-
----
-
-## Part 2 — Push Code to Git
-
-Render deploys from a Git repository. If you haven't already:
+## Step 1 — Push latest code to Git
 
 ```bash
-cd Validation_Rule_Manager
-git init
 git add .
-git commit -m "Initial commit — Validation Rule Manager"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/validation-rule-manager.git
-git push -u origin main
+git commit -m "Single-service Render deploy"
+git push
 ```
-
-> Do **not** commit `.env` files. They are already in `.gitignore`.
 
 ---
 
-## Part 3 — Deploy the Backend (Web Service)
+## Step 2 — Create ONE Web Service on Render
 
-Deploy the backend **first** so you have the API URL for the frontend and Salesforce.
-
-### Option A: One-click Blueprint (recommended)
-
-1. Go to [Render Dashboard](https://dashboard.render.com)
-2. Click **New +** → **Blueprint**
-3. Connect your Git repository
-4. Render detects `render.yaml` — review the two services
-5. Click **Apply**
-6. When prompted, enter the secret environment variables for the **API service**:
-   - `SF_CLIENT_ID` — your Salesforce Consumer Key
-   - `SF_CLIENT_SECRET` — your Salesforce Consumer Secret
-7. Leave `SF_CALLBACK_URL` and `FRONTEND_URL` empty for now — you'll set them in Part 5
-8. Wait for the backend deploy to finish
-
-### Option B: Manual Web Service setup
-
-1. Go to [Render Dashboard](https://dashboard.render.com)
-2. Click **New +** → **Web Service**
+1. Go to [dashboard.render.com](https://dashboard.render.com)
+2. **New +** → **Web Service** (not Static Site)
 3. Connect your Git repository
 4. Configure:
 
 | Setting | Value |
 |---------|-------|
-| **Name** | `validation-rule-manager-api` |
+| **Name** | `salesforce-validation-rule-manager` |
 | **Root Directory** | `backend` |
 | **Runtime** | `Node` |
-| **Build Command** | `npm install` |
+| **Build Command** | `npm run build:render` |
 | **Start Command** | `npm start` |
-| **Plan** | Free (or paid for always-on) |
+| **Health Check Path** | `/health` |
 
-5. Add **Environment Variables**:
+> **Important:** Root Directory must be `backend` (not empty, not `frontend`).
+
+Alternative: if Root Directory is **empty** (repo root), use Build Command `npm run build:render` and Start Command `npm start` from the root `package.json` instead.
+
+---
+
+## Step 3 — Environment variables
+
+Replace `YOUR-RENDER-URL` with your actual Render URL after the first deploy, or use the name you chose:
+
+```
+https://salesforce-validation-rule-manager-1-3m5q.onrender.com
+```
 
 | Key | Value |
 |-----|-------|
 | `NODE_ENV` | `production` |
-| `SESSION_SECRET` | Click **Generate** (or use a long random string) |
+| `SESSION_SECRET` | Generate a random string |
 | `SF_LOGIN_URL` | `https://login.salesforce.com` |
 | `SF_CLIENT_ID` | Your Salesforce Consumer Key |
 | `SF_CLIENT_SECRET` | Your Salesforce Consumer Secret |
-| `SF_CALLBACK_URL` | *(set in Part 5)* |
-| `FRONTEND_URL` | *(set in Part 5)* |
+| `SF_CALLBACK_URL` | `https://YOUR-RENDER-URL.onrender.com/auth/callback` |
+| `FRONTEND_URL` | `https://YOUR-RENDER-URL.onrender.com` |
+| `VITE_API_URL` | *(leave empty)* |
 
-> `PORT` is set automatically by Render — do not override it.
+**All three URLs must use the same Render service hostname.**
 
-6. Under **Advanced**, set **Health Check Path** to `/health`
-7. Click **Create Web Service**
-8. Wait for deploy to complete
-
-### Copy your backend URL
-
-After deploy, copy the backend URL from the Render dashboard, e.g.:
-
-```
-https://validation-rule-manager-api.onrender.com
-```
-
-Test it:
-
-```
-https://validation-rule-manager-api.onrender.com/health
-```
-
-You should see: `{"success":true,"message":"Validation Rule Manager API is running"}`
+Do **not** set `PORT` — Render sets it automatically.
 
 ---
 
-## Part 4 — Deploy the Frontend (Static Site)
+## Step 4 — Update Salesforce Connected App
 
-### Option A: Already created via Blueprint
+In Salesforce → **Setup** → **App Manager** → your Connected App → **Edit**:
 
-If you used the Blueprint, the frontend service exists but needs `VITE_API_URL` set before it will work.
-
-### Option B: Manual Static Site setup
-
-1. Click **New +** → **Static Site**
-2. Connect the same Git repository
-3. Configure:
-
-| Setting | Value |
-|---------|-------|
-| **Name** | `validation-rule-manager-ui` |
-| **Root Directory** | `frontend` |
-| **Build Command** | `npm install && npm run build` |
-| **Publish Directory** | `dist` |
-
-4. Add **Environment Variable**:
-
-| Key | Value |
-|-----|-------|
-| `VITE_API_URL` | `https://validation-rule-manager-api.onrender.com` |
-
-> Replace with your actual backend URL from Part 3.  
-> **Important:** `VITE_API_URL` is baked in at build time. If you change it later, you must **redeploy** the frontend.
-
-5. Under **Redirects/Rewrites**, add:
-
-| Source | Destination |
-|--------|-------------|
-| `/*` | `/index.html` |
-
-(This is already configured in `render.yaml` and `frontend/public/_redirects`.)
-
-6. Click **Create Static Site**
-7. Wait for deploy to complete
-
-### Copy your frontend URL
+Add this **exact** callback URL:
 
 ```
-https://validation-rule-manager-ui.onrender.com
+https://YOUR-RENDER-URL.onrender.com/auth/callback
 ```
 
----
+Example:
 
-## Part 5 — Wire Everything Together
+```
+https://salesforce-validation-rule-manager-1-3m5q.onrender.com/auth/callback
+```
 
-Now connect backend, frontend, and Salesforce.
-
-### 1. Update backend environment variables
-
-In the Render dashboard → **validation-rule-manager-api** → **Environment**:
-
-| Key | Value |
-|-----|-------|
-| `SF_CALLBACK_URL` | `https://validation-rule-manager-api.onrender.com/auth/callback` |
-| `FRONTEND_URL` | `https://validation-rule-manager-ui.onrender.com` |
-
-Click **Save Changes** — Render will redeploy the backend automatically.
-
-### 2. Update frontend environment variable (if not set)
-
-In **validation-rule-manager-ui** → **Environment**:
-
-| Key | Value |
-|-----|-------|
-| `VITE_API_URL` | `https://validation-rule-manager-api.onrender.com` |
-
-Save and **Manual Deploy** → **Deploy latest commit** to rebuild with the correct API URL.
-
-### 3. Update Salesforce Connected App callback URL
-
-In Salesforce → your Connected App → **OAuth Settings**:
-
-1. Add callback URL:
-   ```
-   https://validation-rule-manager-api.onrender.com/auth/callback
-   ```
-2. You can keep `http://localhost:5000/auth/callback` for local dev
-3. Save
+Save and wait 2–5 minutes.
 
 ---
 
-## Part 6 — Test the Live App
+## Step 5 — Redeploy and test
 
-1. Open your frontend URL: `https://validation-rule-manager-ui.onrender.com`
-2. Click **Login with Salesforce**
-3. You should be redirected to Salesforce login (not a 400 error)
-4. After authorizing, you land on the **Dashboard**
-5. Click **Fetch Validation Rules** — rules load from your org
-6. Toggle a rule → **Deploy Changes** — verify it updates in Salesforce
+1. Save environment variables on Render → service redeploys
+2. Open `https://YOUR-RENDER-URL.onrender.com` (not `/dashboard` first — start at root)
+3. Click **Login with Salesforce**
+4. After login you should land on `/dashboard`
+5. Test **Fetch Validation Rules** → toggle → **Deploy Changes**
 
----
+Verify health check:
 
-## Environment Variables Reference
+```
+https://YOUR-RENDER-URL.onrender.com/health
+```
 
-### Backend (`validation-rule-manager-api`)
-
-| Variable | Required | Example |
-|----------|----------|---------|
-| `PORT` | Auto (Render) | `10000` |
-| `NODE_ENV` | Yes | `production` |
-| `SESSION_SECRET` | Yes | Auto-generated random string |
-| `SF_LOGIN_URL` | Yes | `https://login.salesforce.com` |
-| `SF_CLIENT_ID` | Yes | Salesforce Consumer Key |
-| `SF_CLIENT_SECRET` | Yes | Salesforce Consumer Secret |
-| `SF_CALLBACK_URL` | Yes | `https://your-api.onrender.com/auth/callback` |
-| `FRONTEND_URL` | Yes | `https://your-ui.onrender.com` |
-
-### Frontend (`validation-rule-manager-ui`)
-
-| Variable | Required | Example |
-|----------|----------|---------|
-| `VITE_API_URL` | Yes | `https://your-api.onrender.com` |
+Should return `"servesFrontend": true`
 
 ---
 
-## Free Tier Notes
+## If you already have TWO Render services
 
-| Topic | Detail |
-|-------|--------|
-| **Cold starts** | Free Web Services spin down after ~15 min of inactivity. First request may take 30–60 seconds. |
-| **Always-on** | Upgrade to a paid plan ($7/mo) to avoid cold starts. |
-| **Sessions** | Server-side sessions are in memory. If Render restarts the backend, users must log in again. |
-| **HTTPS** | Render provides free SSL on `*.onrender.com` automatically. |
+You likely have a **backend Web Service** and a **frontend Static Site** that are misconfigured. Recommended fix:
+
+1. **Delete** or ignore the separate frontend Static Site
+2. Create **one** Web Service using the settings above (repo root, `npm run build:render`)
+3. Use only that one URL everywhere
 
 ---
 
 ## Troubleshooting
 
-### OAuth redirect fails / 400 Bad Request
+### `/login` or `/dashboard` shows Not Found
 
-- Confirm `SF_CALLBACK_URL` matches Salesforce Connected App **exactly**
-- Confirm PKCE is handled (already built into this app)
-- Check backend logs in Render → **Logs** tab
+| Cause | Fix |
+|-------|-----|
+| Using backend-only deploy (`rootDir: backend`) | Use repo root + `npm run build:render` |
+| Using Static Site for React | Use **Web Service** instead |
+| Old deploy without SPA support | Push latest code and redeploy |
 
-### Login works but API calls return 401
+### `redirect_uri_mismatch`
 
-- Verify `FRONTEND_URL` on backend matches your frontend URL exactly (no trailing slash)
-- Verify `VITE_API_URL` on frontend matches your backend URL
-- Redeploy frontend after changing `VITE_API_URL`
-- Check browser DevTools → Network → requests include cookies (`withCredentials`)
+| Cause | Fix |
+|-------|-----|
+| Salesforce callback URL not added | Add exact `https://YOUR-URL.onrender.com/auth/callback` |
+| `SF_CALLBACK_URL` wrong in Render | Must match Salesforce exactly |
+| Trailing slash | Remove trailing `/` from callback URL |
 
-### CORS errors
+### Login works locally but not on Render
 
-- `FRONTEND_URL` must match the exact origin users visit (including `https://`)
-- Redeploy backend after changing `FRONTEND_URL`
+| Cause | Fix |
+|-------|-----|
+| Sandbox org | Set `SF_LOGIN_URL` to `https://test.salesforce.com` |
+| Wrong Client ID | Must match the Connected App where callback URL was added |
 
-### React routes 404 on refresh
+### `servesFrontend: false` in `/health`
 
-- Ensure SPA rewrite is configured: `/*` → `/index.html`
-- Check `frontend/public/_redirects` is present
-
-### Deploy fails on Render
-
-- Check **Logs** for the failed service
-- Confirm **Root Directory** is `backend` or `frontend` (not repo root)
-- Confirm Node version ≥ 18
-
-### Salesforce deploy errors
-
-- Managed package validation rules cannot be updated via API
-- Rules with "Top of Page" error display are handled automatically by this app
+The React build was not copied to `backend/public`. Check Render build logs for errors in `npm run build:render`.
 
 ---
 
-## Redeploying After Code Changes
+## Optional: Blueprint one-click deploy
 
-```bash
-git add .
-git commit -m "Your change description"
-git push origin main
-```
-
-Render auto-deploys on push if **Auto-Deploy** is enabled (default).
-
-To redeploy manually: Render Dashboard → your service → **Manual Deploy** → **Deploy latest commit**.
+This repo includes `render.yaml`. Use **New + → Blueprint** and connect your repo. Set `SF_CLIENT_ID`, `SF_CLIENT_SECRET`, `SF_CALLBACK_URL`, and `FRONTEND_URL` when prompted.
 
 ---
 
-## Custom Domains (Optional)
+## Checklist
 
-1. Render Dashboard → your service → **Settings** → **Custom Domains**
-2. Add your domain and configure DNS per Render instructions
-3. Update `FRONTEND_URL`, `SF_CALLBACK_URL`, `VITE_API_URL`, and Salesforce callback URL to use your custom domains
-4. Redeploy both services
-
----
-
-## Quick Checklist
-
-- [ ] Code pushed to Git
-- [ ] Backend deployed on Render
-- [ ] `/health` endpoint returns success
-- [ ] Frontend deployed on Render
-- [ ] `VITE_API_URL` set to backend URL (frontend rebuilt)
-- [ ] `SF_CALLBACK_URL` set on backend
-- [ ] `FRONTEND_URL` set on backend
-- [ ] Salesforce Connected App callback URL updated
-- [ ] Login with Salesforce works
-- [ ] Fetch / toggle / deploy works
+- [ ] One Web Service (repo root, not `backend/` only)
+- [ ] Build: `npm run build:render`
+- [ ] Start: `npm start`
+- [ ] `SF_CALLBACK_URL` = `https://YOUR-URL.onrender.com/auth/callback`
+- [ ] `FRONTEND_URL` = `https://YOUR-URL.onrender.com`
+- [ ] Same URL added in Salesforce Connected App
+- [ ] `/health` shows `"servesFrontend": true`
+- [ ] App opens at root URL, login works, dashboard loads

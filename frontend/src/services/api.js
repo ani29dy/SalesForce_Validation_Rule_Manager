@@ -1,6 +1,13 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// Production single-service deploy: empty string = same origin (API + UI on one Render URL)
+// Local dev: defaults to localhost:5000
+const API_URL =
+  import.meta.env.VITE_API_URL !== undefined && import.meta.env.VITE_API_URL !== ''
+    ? import.meta.env.VITE_API_URL.replace(/\/$/, '')
+    : import.meta.env.PROD
+      ? ''
+      : 'http://localhost:5000';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -13,7 +20,7 @@ const api = axios.create({
 // Auth
 export const getAuthStatus = () => api.get('/auth/status');
 export const logout = () => api.post('/auth/logout');
-export const getLoginUrl = () => `${API_URL}/auth/login`;
+export const getLoginUrl = () => (API_URL ? `${API_URL}/auth/login` : '/auth/login');
 
 // Validation Rules
 export const fetchValidationRules = () => api.get('/validation-rules');

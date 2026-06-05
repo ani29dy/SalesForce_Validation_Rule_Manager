@@ -1,14 +1,13 @@
-# Render Blueprint — deploy both services from one repo
-# Docs: https://render.com/docs/blueprint-spec
+# Render Blueprint — single web service (API + React UI)
+# Root Directory on Render must be: backend
 
 services:
-  # Backend API (deploy this first to get the service URL)
   - type: web
-    name: validation-rule-manager-api
+    name: salesforce-validation-rule-manager
     runtime: node
     rootDir: backend
     plan: free
-    buildCommand: npm install
+    buildCommand: npm run build:render
     startCommand: npm start
     healthCheckPath: /health
     envVars:
@@ -22,23 +21,11 @@ services:
         sync: false
       - key: SF_CLIENT_SECRET
         sync: false
+      # Set both to your Render service URL, e.g. https://salesforce-validation-rule-manager-xxxx.onrender.com
       - key: SF_CALLBACK_URL
         sync: false
       - key: FRONTEND_URL
         sync: false
-
-  # Frontend static site (deploy after backend; set VITE_API_URL to backend URL)
-  - type: web
-    name: validation-rule-manager-ui
-    runtime: static
-    rootDir: frontend
-    plan: free
-    buildCommand: npm install && npm run build
-    staticPublishPath: dist
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    envVars:
+      # Leave empty for same-origin API calls (recommended for single-service deploy)
       - key: VITE_API_URL
-        sync: false
+        value: ""
