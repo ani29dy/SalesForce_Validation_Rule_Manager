@@ -4,7 +4,7 @@
   "private": true,
   "description": "Salesforce Validation Rule Manager — unified Render deploy",
   "scripts": {
-    "build:render": "npm install --prefix frontend && npm run build --prefix frontend && npm install --prefix backend && node backend/scripts/prepare-public.js",
+    "build:render": "npm install --prefix frontend --include=dev && npm run build --prefix frontend && npm install --prefix backend && node backend/scripts/prepare-public.js",
     "start": "npm start --prefix backend"
   },
   "engines": {

@@ -9,14 +9,15 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "build:render": "npm install --prefix ../frontend && npm run build --prefix ../frontend && npm install && node scripts/prepare-public.js"
+    "build:render": "npm install --prefix ../frontend --include=dev && npm run build --prefix ../frontend && npm install && node scripts/prepare-public.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
     "express-session": "^1.18.0",
-    "jsforce": "^3.6.3"
+    "jsforce": "^3.6.3",
+    "validation-rule-manager": "file:.."
   },
   "devDependencies": {
     "nodemon": "^3.1.4"
