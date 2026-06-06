@@ -1,9 +1,9 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import { ToastProvider } from './context/ToastContext';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import LoadingSpinner from './components/LoadingSpinner';
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { ToastProvider } from "./context/ToastContext";
+import Login from "./pages/Login";
+import Dashboard from "./pages/Dashboard";
+import LoadingSpinner from "./components/LoadingSpinner";
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -33,11 +33,6 @@ function PublicRoute({ children }) {
       </div>
     );
   }
-
-  if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
   return children;
 }
 

@@ -1,12 +1,12 @@
-const jsforce = require('jsforce');
-const { createOAuth2 } = require('../config/salesforce');
+const jsforce = require("jsforce");
+const { createOAuth2 } = require("../config/salesforce");
 
 function getFrontendUrl() {
   return (
     process.env.FRONTEND_URL ||
     process.env.RENDER_EXTERNAL_URL ||
-    'http://localhost:5173'
-  ).replace(/\/$/, '');
+    "http://localhost:5173"
+  ).replace(/\/$/, "");
 }
 
 /**
@@ -20,14 +20,16 @@ function login(req, res) {
   req.session.codeVerifier = oauth2.codeVerifier;
 
   const authUrl = oauth2.getAuthorizationUrl({
-    scope: 'api refresh_token',
-    code_challenge_method: 'S256',
+    scope: "api refresh_token",
+    code_challenge_method: "S256",
   });
 
   req.session.save((err) => {
     if (err) {
-      console.error('Session save error on login:', err);
-      return res.status(500).json({ success: false, message: 'Failed to start login' });
+      console.error("Session save error on login:", err);
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to start login" });
     }
     res.redirect(authUrl);
   });
@@ -41,17 +43,21 @@ async function callback(req, res) {
   const frontendUrl = getFrontendUrl();
 
   if (error) {
-    console.error('OAuth error:', error, errorDescription);
-    return res.redirect(`${frontendUrl}/login?error=${encodeURIComponent(errorDescription || error)}`);
+    console.error("OAuth error:", error, errorDescription);
+    return res.redirect(
+      `${frontendUrl}/login?error=${encodeURIComponent(errorDescription || error)}`,
+    );
   }
 
   if (!code) {
-    return res.redirect(`${frontendUrl}/login?error=${encodeURIComponent('Authorization code missing')}`);
+    return res.redirect(
+      `${frontendUrl}/login?error=${encodeURIComponent("Authorization code missing")}`,
+    );
   }
 
   if (!req.session.codeVerifier) {
     return res.redirect(
-      `${frontendUrl}/login?error=${encodeURIComponent('PKCE verifier missing. Please try logging in again.')}`,
+      `${frontendUrl}/login?error=${encodeURIComponent("PKCE verifier missing. Please try logging in again.")}`,
     );
   }
 
@@ -75,21 +81,26 @@ async function callback(req, res) {
     req.session.instanceUrl = conn.instanceUrl;
     req.session.refreshToken = conn.refreshToken;
     req.session.userId = userInfo.id;
-    req.session.username = identity.username || identity.display_name || userInfo.id;
+    req.session.username =
+      identity.username || identity.display_name || userInfo.id;
     req.session.validationRules = [];
     delete req.session.codeVerifier;
 
     req.session.save((err) => {
       if (err) {
-        console.error('Session save error:', err);
-        return res.redirect(`${frontendUrl}/login?error=${encodeURIComponent('Failed to save session')}`);
+        console.error("Session save error:", err);
+        return res.redirect(
+          `${frontendUrl}/login?error=${encodeURIComponent("Failed to save session")}`,
+        );
       }
       res.redirect(`${frontendUrl}/dashboard`);
     });
   } catch (err) {
-    console.error('OAuth callback error:', err.message);
+    console.error("OAuth callback error:", err.message);
     delete req.session.codeVerifier;
-    res.redirect(`${frontendUrl}/login?error=${encodeURIComponent(err.message)}`);
+    res.redirect(
+      `${frontendUrl}/login?error=${encodeURIComponent(err.message)}`,
+    );
   }
 }
 
@@ -97,7 +108,9 @@ async function callback(req, res) {
  * Return current authentication status and user info.
  */
 function status(req, res) {
-  const authenticated = !!(req.session?.accessToken && req.session?.instanceUrl);
+  const authenticated = !!(
+    req.session?.accessToken && req.session?.instanceUrl
+  );
 
   res.json({
     success: true,
@@ -118,10 +131,41 @@ function status(req, res) {
 function logout(req, res) {
   req.session.destroy((err) => {
     if (err) {
-      return res.status(500).json({ success: false, message: 'Failed to logout' });
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to logout" });
     }
-    res.clearCookie('connect.sid');
-    res.json({ success: true, message: 'Logged out successfully' });
+    res.clearCookie("connect.sid");
+    res.json({ success: true, message: "Logged out successfully" });
+  });
+}
+
+/**
+ * Destroy local session and also redirect browser to Salesforce logout
+ * endpoint to remove the Salesforce SSO cookie. After Salesforce logout
+ * completes, it will redirect back to the frontend login page.
+ */
+function logoutAll(req, res) {
+  const frontendUrl = getFrontendUrl();
+  const instanceUrl = req.session?.instanceUrl;
+
+  // Destroy server-side session and clear cookie first
+  req.session.destroy((err) => {
+    if (err) {
+      console.error("Session destroy error on logoutAll:", err);
+      // proceed anyway — we want to attempt to clear Salesforce session
+    }
+    res.clearCookie("connect.sid");
+
+    if (instanceUrl) {
+      const target = `${instanceUrl.replace(/\/$/, "")}/secur/logout.jsp?retUrl=${encodeURIComponent(
+        `${frontendUrl}/login`,
+      )}`;
+      return res.redirect(target);
+    }
+
+    // If we don't have an instance URL, just redirect back to frontend login
+    return res.redirect(`${frontendUrl}/login`);
   });
 }
 
