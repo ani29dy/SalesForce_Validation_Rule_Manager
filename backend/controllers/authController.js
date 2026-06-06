@@ -159,13 +159,13 @@ function logoutAll(req, res) {
 
     if (instanceUrl) {
       const target = `${instanceUrl.replace(/\/$/, "")}/secur/logout.jsp?retUrl=${encodeURIComponent(
-        `${frontendUrl}/login`,
+        `${frontendUrl}/login?fresh=true`,
       )}`;
       return res.redirect(target);
     }
 
     // If we don't have an instance URL, just redirect back to frontend login
-    return res.redirect(`${frontendUrl}/login`);
+    return res.redirect(`${frontendUrl}/login?fresh=true`);
   });
 }
 

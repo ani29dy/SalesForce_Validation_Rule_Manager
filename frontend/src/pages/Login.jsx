@@ -18,6 +18,18 @@ export default function Login() {
     }
   }, [searchParams, showError]);
 
+  useEffect(() => {
+    const shouldStartFreshLogin =
+      !loading &&
+      !isAuthenticated &&
+      searchParams.get("fresh") === "true" &&
+      !searchParams.get("error");
+
+    if (shouldStartFreshLogin) {
+      window.location.href = getLoginUrl();
+    }
+  }, [loading, isAuthenticated, searchParams]);
+
   // Do not auto-redirect when already authenticated.
   // Instead show current session details and provide logout/relogin options.
 
@@ -36,6 +48,19 @@ export default function Login() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated && searchParams.get("fresh") === "true") {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <LoadingSpinner size="lg" />
+          <p className="mt-4 text-sm text-gray-600">
+            Signing out of Salesforce and redirecting to login...
+          </p>
+        </div>
       </div>
     );
   }
