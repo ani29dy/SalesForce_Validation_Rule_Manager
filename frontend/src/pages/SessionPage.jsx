@@ -49,8 +49,8 @@ export default function SessionPage() {
     } catch (err) {
       console.error("Logout error:", err);
     }
-    // Clear frontend auth state and redirect to login page
-    navigate("/login");
+    // Force full page reload to clear auth context and session
+    window.location.href = "/login";
   };
 
   return (
