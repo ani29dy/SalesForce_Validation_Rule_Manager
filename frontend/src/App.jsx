@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ToastProvider } from "./context/ToastContext";
 import Login from "./pages/Login";
+import SessionPage from "./pages/SessionPage";
 import Dashboard from "./pages/Dashboard";
 import LoadingSpinner from "./components/LoadingSpinner";
 
@@ -42,8 +43,9 @@ export default function App() {
       <AuthProvider>
         <ToastProvider>
           <Routes>
+            <Route path="/" element={<Navigate to="/login" replace />} />
             <Route
-              path="/"
+              path="/login"
               element={
                 <PublicRoute>
                   <Login />
@@ -51,11 +53,11 @@ export default function App() {
               }
             />
             <Route
-              path="/login"
+              path="/session"
               element={
-                <PublicRoute>
-                  <Login />
-                </PublicRoute>
+                <ProtectedRoute>
+                  <SessionPage />
+                </ProtectedRoute>
               }
             />
             <Route
@@ -66,7 +68,7 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </ToastProvider>
       </AuthProvider>

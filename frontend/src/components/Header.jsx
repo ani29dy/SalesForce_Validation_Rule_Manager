@@ -6,7 +6,7 @@ export default function Header({ hasPendingChanges }) {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    navigate("/login");
+    navigate("/session");
   };
 
   return (
