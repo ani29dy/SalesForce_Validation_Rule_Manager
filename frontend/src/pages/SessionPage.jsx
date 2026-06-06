@@ -1,7 +1,7 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
-import { getLogoutAllUrl } from "../services/api";
+import { logout as logoutApi } from "../services/api";
 import LoadingSpinner from "../components/LoadingSpinner";
 
 export default function SessionPage() {
@@ -42,11 +42,15 @@ export default function SessionPage() {
     navigate("/dashboard");
   };
 
-  const handleLogoutAndRelogin = () => {
-    // Redirect to backend endpoint which will destroy the local session
-    // and then redirect the browser to Salesforce logout which returns
-    // back to the frontend login page.
-    window.location.href = getLogoutAllUrl();
+  const handleLogoutAndRelogin = async () => {
+    try {
+      // Call logout API to destroy local session
+      await logoutApi();
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
+    // Clear frontend auth state and redirect to login page
+    navigate("/login");
   };
 
   return (
