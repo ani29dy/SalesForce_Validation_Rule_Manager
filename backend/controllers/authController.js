@@ -169,4 +169,4 @@ function logoutAll(req, res) {
   });
 }
 
-module.exports = { login, callback, status, logout };
+module.exports = { login, callback, status, logout, logoutAll };
